@@ -9,6 +9,7 @@
 # Usage:
 #   Setup:
 #      kbnb.init() or kbnb.init(cb=some_function)
+#      kbnb.reset_flags() when done
 #      Example callback function:
 #        def some_function():
 #            plt.pause(0.05)
@@ -87,6 +88,7 @@ def init(cb=None, delay=.05):
 @atexit.register
 def reset_flags():
 	global orig_flags
+	print("Resetting!")
 	if orig_flags:
 		termios.tcsetattr(sys.stdin, termios.TCSADRAIN, orig_flags)
 

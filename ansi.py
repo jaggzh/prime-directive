@@ -1,33 +1,37 @@
 from __future__ import print_function # For * **
 import sys
 
-bgbla="\033[40m"
-bgred="\033[41m"
-bggre="\033[42m"
-bgbro="\033[43m"
-bgblu="\033[44m"
-bgmag="\033[45m"
-bgcya="\033[46m"
-bggra="\033[47m"
-bla="\033[30m"
-red="\033[31m"
-gre="\033[32m"
-bro="\033[33m"
-blu="\033[34m"
-mag="\033[35m"
-cya="\033[36m"
-gra="\033[37m"
-bbla="\033[30;1m"
-bred="\033[31;1m"
-bgre="\033[32;1m"
-yel="\033[33;1m"
-bblu="\033[34;1m"
-bmag="\033[35;1m"
-bcya="\033[36;1m"
-whi="\033[37;1m"
-rst="\033[0;m"
+esc="^["
+esc="\033"
+bgbla=esc + "[40m"
+bgred=esc + "[41m"
+bggre=esc + "[42m"
+bgbro=esc + "[43m"
+bgblu=esc + "[44m"
+bgmag=esc + "[45m"
+bgcya=esc + "[46m"
+bggra=esc + "[47m"
+bla=esc + "[30m"
+red=esc + "[31m"
+gre=esc + "[32m"
+bro=esc + "[33m"
+blu=esc + "[34m"
+mag=esc + "[35m"
+cya=esc + "[36m"
+gra=esc + "[37m"
+bbla=esc + "[30;1m"
+bred=esc + "[31;1m"
+bgre=esc + "[32;1m"
+yel=esc + "[33;1m"
+bblu=esc + "[34;1m"
+bmag=esc + "[35;1m"
+bcya=esc + "[36;1m"
+whi=esc + "[37;1m"
+rst=esc + "[0;m"
+chide=esc + "[?25l"
+cshow=esc + "[?25h"
 
-def pfp(*x, **y):
+def pfl(*x, **y):
 	print(*x, **y, end="")
 	sys.stdout.flush()
 
@@ -41,9 +45,9 @@ aseq_b  = [16,17,18,19,20,21]
 aseq_gr = [232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255]
 
 def a256fg(a):
-	return "\033[38;5;" + str(a) + "m";
+	return esc + "[38;5;" + str(a) + "m";
 def a256bg(a):
-	return "\033[48;5;" + str(a) + "m";
+	return esc + "[48;5;" + str(a) + "m";
 def aseq_norm(seq, i): # Takes sequence and a value from [0-1]
 	return seq[int((len(seq)-2) * i)+1]
 
@@ -116,16 +120,19 @@ def get_linux_terminal():
 
 import sys
 def gy(sy):
-	pfp("\033[{}H".format(sy))
+	pfl(esc + "[{}H".format(sy))
 	sys.stdout.flush()
-def gxy(sy,sx):
-	pfp("\033[{};{}H".format(sy,sx))
+def gxy(sx,sy):
+	pfl(esc + "[{};{}H".format(sy,sx))
 	sys.stdout.flush()
-def clr():
-	pfp("\033[2J")
+def gyx(sy,sx):
+	pfl(esc + "[{};{}H".format(sy,sx))
 	sys.stdout.flush()
-def gright(): pfp("\033[C")
-def gleft(): pfp("\033[D")
-def gup(): pfp("\033[A")
-def gdown(): pfp("\033[B")
+def cls():
+	pfl(esc + "[2J")
+	sys.stdout.flush()
+def gright(): pfl(esc + "[C")
+def gleft(): pfl(esc + "[D")
+def gup(): pfl(esc + "[A")
+def gdown(): pfl(esc + "[B")
 

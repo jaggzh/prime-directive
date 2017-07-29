@@ -1,8 +1,9 @@
-VIARGS=Makefile log/log.txt prime-directive.py ansi.py world.py {RO}../nn-punk.py util.py kbnb.py ansi_str_colorize_demo.py
+VIARGS=Makefile log/log.txt prime-directive.py world.py ansi.py {RO}../nn-punk/nn-punk.py util.py kbnb.py ansi_str_colorize_demo.py
 VISTART=prime-directive.py
 SHELL=/bin/bash
 PROG=./prime-directive.py
 TEEPROG=tee log/log.txt
+#STRIPJIB=grep -v 'replica:0'
 
 all: run
 

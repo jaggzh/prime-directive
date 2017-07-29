@@ -6,6 +6,12 @@ from __future__ import print_function
 #from hyperopt import Trials, STATUS_OK, tpe
 #from hyperas import optim
 #from hyperas.distributions import choice, uniform, conditional
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
+import tensorflow as tf
+sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
+
 import keras
 import errno
 from keras.models import Sequential, Model
@@ -23,7 +29,7 @@ import sys
 from os import listdir
 from os.path import isdir, isfile, islink, join
 from random import randint, uniform, randrange, random as rand
-import random, re, os, time, sys, math, shutil, itertools, argparse
+import random, re, time, sys, math, shutil, itertools, argparse
 from time import sleep
 from math import ceil
 import math
@@ -36,12 +42,15 @@ from bh.util import *
 import os
 from world import *
 import bh.kbnb as kbnb
+import atexit
+import signal
 
 #from seya.layers.attention import SpatialTransformer, ST2
 
 def getargs():
 	parser = argparse.ArgumentParser(description='Page undeformer')
 	parser.add_argument('-f', '--viewfirst', action='store_true', help='View images before training')
+	parser.add_argument('-D', '--nodraw', action='store_true', help='Disable Drawing')
 	return parser.parse_args()
 args = getargs()
 termwidth = None
@@ -66,7 +75,7 @@ def init():
 	# fix random seed for reproducibility
 	global termwidth, termheight
 	termwidth, termheight = get_linux_terminal()
-	seed = 16
+	seed = 18
 	random.seed(seed)
 	numpy.random.seed(seed)
 	numpy.set_printoptions(threshold=64, linewidth=termwidth-1, edgeitems=3)
@@ -229,27 +238,58 @@ def save_weights(model, fn):
 	model.save_weights(fn)
 	pf("Saved weights to", fn)
 
-init()
+def siggy(signum, frame):
+	if signum == signal.SIGINT:
+		pf("Interrupted")
+		cleanup()
+		exit(0)
+	elif signum == signal.SIGWINCH:
+		world.update_tsize()
+def cleanup():
+	world.restore_ui() # Restores cursor
+	kbnb.reset_flags() # Restore terminal echo and icanon
+	gy(termheight-1)
 
-world_size = (30, termwidth, termheight)
+init()
+world_size = (30*2, 20, termwidth*2)
 #model = model()
 world = World(size=world_size)
+world.init_ui() # Currently just hides cursor
+signal.signal(signal.SIGINT, siggy)
+signal.signal(signal.SIGWINCH, siggy)
 
-for i in range(10):
+#cls()
+#sleep(3)
+
+# Add wall
+#for y in range(0,world_size[1],20):
+fblock = FixedBlock()
+world.add_object(fblock, pos=(0, world_size[1]/2, int(world_size[2]*.6)))
+# Add other objects
+for i in range(int(world_size[2])):
+	horizon = Horizon()
+	ground = NearGround()
+	world.add_object(horizon, pos=(0, int(world_size[1]-1), i))
+	world.add_object(ground, pos=(0, 0, i))
+for i in range(1):
 	human = Human()
 	human.vel = (0,uniform(-.5,.5),uniform(-.5,.5))
 	world.add_object(human)
+for i in range(0):
 	block = Block()
 	world.add_object(block)
-for t in range(0,100):
-	world.draw()
-	world.step()
-	time.sleep(1)
+# Add bot
+bot = Bot()
+world.add_object(bot)
+for t in range(0,10000):
+	if not args.nodraw: world.draw()
 
-#for i in xrange(opt_iters):
-#train(model=model, itercount=i)
-gy(termheight-1)
-inp=kbnb.waitch("Hit any key to close\n")
-exit()
+	if not kbnb.getch(): time.sleep(.07)  # Delay before step cuz step erases
+	else: break
+
+	world.step()
+
+cleanup()
+pf("Finished")
 	
-# vim:ts=4 ai
+# vim:ts=2 ai
