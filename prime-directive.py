@@ -40,7 +40,7 @@ from ansi import *
 from bh.util import *
 #import cPickle as pickle
 import os
-from world import *
+from world import World, Human, NearGround, Horizon, Block, FixedBlock, Bot, Goal
 import bh.kbnb as kbnb
 import atexit
 import signal
@@ -247,14 +247,14 @@ def siggy(signum, frame):
 		world.update_tsize()
 def cleanup():
 	world.restore_ui() # Restores cursor
-	kbnb.reset_flags() # Restore terminal echo and icanon
+	#kbnb.reset_flags() # Restore terminal echo and icanon
 	gy(termheight-1)
 
 init()
 world_size = (30*2, 20, termwidth*2)
 #model = model()
 world = World(size=world_size)
-world.init_ui() # Currently just hides cursor
+world.init_ui()
 signal.signal(signal.SIGINT, siggy)
 signal.signal(signal.SIGWINCH, siggy)
 
@@ -269,13 +269,13 @@ world.add_object(fblock, pos=(0, world_size[1]/2, int(world_size[2]*.6)))
 for i in range(int(world_size[2])):
 	horizon = Horizon()
 	ground = NearGround()
-	world.add_object(horizon, pos=(0, int(world_size[1]-1), i))
+	world.add_object(horizon, pos=(0, world_size[1]-1, i))
 	world.add_object(ground, pos=(0, 0, i))
-for i in range(1):
+for i in range(10):
 	human = Human()
 	human.vel = (0,uniform(-.5,.5),uniform(-.5,.5))
 	world.add_object(human)
-for i in range(0):
+for i in range(5):
 	block = Block()
 	world.add_object(block)
 # Add bot
@@ -283,9 +283,9 @@ bot = Bot()
 world.add_object(bot)
 for t in range(0,10000):
 	if not args.nodraw: world.draw()
+	time.sleep(2)  # Delay before step cuz step erases
 
-	if not kbnb.getch(): time.sleep(.07)  # Delay before step cuz step erases
-	else: break
+	#else: break
 
 	world.step()
 
