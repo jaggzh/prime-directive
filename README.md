@@ -13,6 +13,4 @@ just get over a wall.
 I only have an .mp4 currently, and the program's buggy so it doesn't do anything
 useful yet.
 
-<video style="width:100%; height:auto; display:block" autoplay controls loop="loop">
- <source src="vid/screencap.mp4" type="video/mp4" />
-</video>
+![Screencap anim](vid/screencap.gif)
