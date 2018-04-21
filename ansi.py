@@ -1,4 +1,4 @@
-from __future__ import print_function # For * **
+from __future__ import print_function
 import sys
 
 esc="^["
@@ -31,8 +31,10 @@ rst=esc + "[0;m"
 chide=esc + "[?25l"
 cshow=esc + "[?25h"
 
-def pfl(*x, **y):
-	print(*x, **y, end="")
+def apfl(*x, **y):
+	y.setdefault('sep', '')
+	y.setdefault('end', '')
+	print(*x, **y)
 	sys.stdout.flush()
 
 
@@ -89,7 +91,10 @@ def uncolor():
 	bbla, bred, bgre, yel, bgre, bmag, bcya, whi = [""]*8
 	rst = ""
 
-def get_linux_terminal():
+def get_linux_termsize_xy(): # x,y
+	return get_linux_terminal()
+
+def get_linux_terminal(): # x,y
 	import os
 	env = os.environ
 	def ioctl_GWINSZ(fd):
@@ -120,19 +125,19 @@ def get_linux_terminal():
 
 import sys
 def gy(sy):
-	pfl(esc + "[{}H".format(sy))
+	apfl(esc + "[{}H".format(sy))
 	sys.stdout.flush()
 def gxy(sx,sy):
-	pfl(esc + "[{};{}H".format(sy,sx))
+	apfl(esc + "[{};{}H".format(sy,sx))
 	sys.stdout.flush()
 def gyx(sy,sx):
-	pfl(esc + "[{};{}H".format(sy,sx))
+	apfl(esc + "[{};{}H".format(sy,sx))
 	sys.stdout.flush()
 def cls():
-	pfl(esc + "[2J")
+	apfl(esc + "[2J")
 	sys.stdout.flush()
-def gright(): pfl(esc + "[C")
-def gleft(): pfl(esc + "[D")
-def gup(): pfl(esc + "[A")
-def gdown(): pfl(esc + "[B")
+def gright(): apfl(esc + "[C")
+def gleft(): apfl(esc + "[D")
+def gup(): apfl(esc + "[A")
+def gdown(): apfl(esc + "[B")
 

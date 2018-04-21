@@ -19,7 +19,7 @@
 #      print("Hit any key")
 #      ch = kbnb.waitch() or waitch(cb=different_callback)
 #   To check (and get any pending) key:
-#      ch = kbnb.getchnb()
+#      ch = kbnb.getch()
 #      Returns: None if no input is pending
 #   To check (and get any pending) char sequence as a list:
 #      str = kbnb.getstrnb()
@@ -52,7 +52,7 @@
 #                 # (Useful if a key was hit, like up or down, which
 #                 # Might send a multi-character sequence)
 
-# Full example using getchnb() to do something while waiting for input:
+# Full example using getch() to do something while waiting for input:
 #   import kbnb, time
 #   kbnb.init()
 #   while True:
@@ -87,9 +87,9 @@ def init(cb=None, delay=.05):
 
 @atexit.register
 def reset_flags():
-	global orig_flags
-	print("Resetting!")
+	#print("kbnb cleanup")
 	if orig_flags:
+		#print("kbnb reset")
 		termios.tcsetattr(sys.stdin, termios.TCSADRAIN, orig_flags)
 
 def setcb(cb):
@@ -114,8 +114,10 @@ def getstr():
 	return ch_str;
 def gobble():
 	while getch(): pass
-def waitch(prompt=None, cb='default'):
-	if prompt: print(prompt, end="")
+def waitch(prompt="Hit a key to continue", cb='default'):
+	if prompt:
+		print(prompt, end="")
+		sys.stdout.flush()
 	while True:
 		key = getch()
 		if len(key): return key

@@ -13,6 +13,9 @@ class Erasure:
 		self.co = co
 		self.timestep = timestep
 
+def sign0(v):
+	return v and (1, -1)[v < 0]
+
 class World:
 	t_bot = 0
 	t_empty = 1
@@ -33,7 +36,7 @@ class World:
 		if tsize[0] == None: self.tsize[0] = tys
 		if tsize[1] == None: self.tsize[1] = txs
 
-		self.tyscale = .5        # Display world y in term height * tyscale
+		self.tyscale = .7        # Display world y in term height * tyscale
 		self.objs = []
 		self.status_lines = 15
 		self.ui_initted = False
@@ -45,7 +48,10 @@ class World:
 	def update_tsize(self):
 		#txs, tys = get_linux_terminal()
 		self.tsize = list(self.curses.getmaxyx())
-		self.trow_status = tys-self.status_lines
+		self.trow_status = self.tsize[0]-self.status_lines
+
+		self.wworldheight, self.wworldwidth = self.winworld.getmaxyx()
+		self.wstatusheight, self.wstatuswidth = self.winstatus.getmaxyx()
 
 	# Convenience properties, xs => size[2]
 	@property
@@ -110,37 +116,71 @@ class World:
 		#pfpl(chide, rst)
 		#cls()
 		self.curses = curses.initscr()
+		curses.start_color()
 		curses.noecho()
 		#curses.cbreak()
 		curses.curs_set(0)
 		self.curses.keypad(1)
+
 		self.tsize = list(self.curses.getmaxyx())
-		self.winworld = curses.newwin(
-			self.tsize[0]-self.status_lines, self.tsize[1],
-			0,0)
-		self.winstatus = curses.newwin(
-			self.status_lines, self.tsize[1],
-			self.tsize[0]-self.status_lines, 0)
+
+		wworldheight = self.tsize[0]-self.status_lines
+		wworldwidth = self.tsize[1]
+		wstatusheight = self.status_lines
+		wstatuswidth = self.tsize[1]
+		wstatuslocy = self.tsize[0]-self.status_lines
+		wstatuslocx = 0
+		self.wworldheight = wworldheight
+		self.wworldwidth = wworldwidth
+		self.wstatusheight = wstatusheight
+		self.wstatuswidth = wstatuswidth
+
+		#eprint("winworld: {},{} 0,0".format(wworldheight,wworldwidth))
+		#eprint("winstatus: {},{} {},{}".format(wstatusheight,wstatuswidth,
+			#wstatuslocy,wstatuslocx))
+		self.winworld = curses.newwin(wworldheight,wworldwidth, 0,0)
+		self.winstatus = curses.newwin(wstatusheight,wstatuswidth, 
+			wstatuslocy,wstatuslocx)
+
 		self.winstatus.scrollok(True)
 		self.winworld.refresh()
 		self.winstatus.refresh()
+
+		self.winworld.nodelay(1)
+		self.winstatus.nodelay(1)
+
+		curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+		curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+		curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+		curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
+		curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+		curses.init_pair(6, curses.COLOR_CYAN, curses.COLOR_BLACK)
+		curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLACK)
+		self.c_red = curses.color_pair(1)
+		self.c_gre = curses.color_pair(2)
+		self.c_yel = curses.color_pair(3)
+		self.c_blu = curses.color_pair(4)
+		self.c_mag = curses.color_pair(5)
+		self.c_cya = curses.color_pair(6)
+		self.c_whi = curses.color_pair(7)
 	@atexit.register
 	def restore_ui():
 		#pfl(cshow)
+		#curses.keypad(0)
 		curses.nocbreak()
-		#world.curses.keypad(0)
-		curses.curs_set(1)
 		curses.echo()
+		curses.curs_set(1)
 		curses.endwin()
 		pf("Reset 1")
+		os.system("stty sane")
 	def restore_ui(self):
 		curses.nocbreak()
-		self.curses.keypad(0)
 		curses.echo()
 		curses.curs_set(1)
 		curses.endwin()
 		self.ui_initted = False
 		pf("Reset 2")
+		os.system("stty sane")
 	def log(self, s):
 		self.statuses.append(s)
 		if len(self.statuses) >= self.status_lines:
@@ -164,9 +204,32 @@ class World:
 				newlist.append(e)
 		self.erasures = newlist
 	def draw(self):
+		osort = sorted(self.objs, key=lambda o: o.pos[1], reverse=True)
 		self.erase_erasures()
-		for o in sorted(self.objs, key=lambda o: o.pos[1], reverse=True):
+		# Erase old positioned objects
+		for o in osort:
+			if o.oldpos is not None:
+				coo = self.world_co_to_screen(o.oldpos)
+				co = self.world_co_to_screen(o.pos)
+				if coo != co:
+					self.draw_object(o, erase=True, manpos=o.oldpos)
+		#self.log("Timestep: {}".format(self.timestep))
+		# Draw objects
+		for o in osort:
 			self.draw_object(o)
+			# Draw collisions
+			# This is pretty slow, comparing all objects to each other
+			for o2 in self.objs:
+				if o2 == o: continue
+				if o.typ == o2.typ:
+					if o.fixed: continue
+				hitside = self.overlap_obj(o, o2)
+				o.hitside = hitside
+				if hitside is not None: # If overlap
+					self.draw_collision(o, hitside)
+					o.handle_overlap(o2, hitside)
+					pass
+		#if not self.timestep % 10:
 		self.winworld.refresh()
 
 	def step(self):
@@ -186,20 +249,6 @@ class World:
 					o.pos[i] = self.size[i]-o.size[i]
 					o.vel[i] = 0
 			#eprint("poso new: {} -> {}\n".format( o.oldpos, o.pos))
-			if o.oldpos is not None and (o.pos != o.oldpos).any():
-				self.draw_object(o, erase=True, manpos=o.oldpos)
-			for o2 in self.objs:
-				if o2 == o: continue
-				#pfp(self.timestep, ". Obj[{}] ".format(oi), o, " vel: ", o.vel)
-				hitside = self.overlap_obj(o, o2)
-				o.hitside = hitside
-				if hitside is not None: # If overlap
-					#pdb.set_trace()
-					#hitside = self.overlap_obj(o, o2)
-					#self.log("{}. Obj[{}] {} vel: {}".format(self.timestep, oi,o, o.vel))
-					self.log("Collision: {}".format(hitside))
-					self.draw_collision(o, hitside)
-					o.handle_overlap(o2, hitside)
 	def world_co_to_screen(self, co, obj=None): # Project along y orthogonally
 		ty,tx = self.winworld.getmaxyx()
 
@@ -210,19 +259,23 @@ class World:
 		#self.log("ty,tx {},{} co:{}, sy,sx {},{}".format(ty,tx,co, sy, sx))
 		return sy, sx
 		
-	def draw_object(self, o, erase=False, manpos=None): # or Manual position
+	def draw_object(self, o, erase=False, manpos=None, color=None): # or Manual position
+		if color is None: color = self.c_whi
+
 		pos = o.pos if manpos is None else manpos
 
 		if o.oldpos is None:
 				o.oldpos = np.array(pos)
 				#eprint("Initial update: {}".format(pos))
+
+		co = self.world_co_to_screen(pos, obj=o)
 		if (o.oldpos != pos).any():
 				o.oldpos = np.array(pos)
 				#eprint("Secondary update: {}".format(pos))
 
-		co = self.world_co_to_screen(pos, obj=o)
 		height = len(o.pic)
 		for y in range(0, len(o.pic)):
+			#if o.typ == self.t_human: pdb.set_trace()
 			#if o.typ != t_nearground and o.typ != t_horizon:
 			#	self.log("[" + str(self.timestep) + "] Obj: " + str(o) + " at " + str(co[0]+1+y))
 
@@ -232,11 +285,19 @@ class World:
 			ty = co[0]-height+y
 			# Don't round up with +.5 cuz we're not at 0, but on the first char
 			tx = co[1] - int(o.size[2]/2)
+			'''
+			if o.typ == self.t_nearground and tx > 80:
+				os.system("stty sane")
+				pf("o pos: {}".format(o.pos))
+				pf("ty,x {},{}".format(ty, tx))
+				pdb.set_trace()
+			'''
 
 			for x in range(0, len(o.pic[y])):
 				# Don't print spaces (just advance right)
-				if ty >= 0 and tx+x >= 0 and tx+x < self.tsize[1]:
-					#self.log("Adding @ {},{}".format(ty, tx+x))
+				if ty >= 0 and ty < self.wworldheight and \
+						tx+x >= 0 and tx+x < self.wworldwidth:
+					self.log("Adding @ {},{}".format(ty, tx+x))
 					if erase:
 						self.winworld.addstr(ty, tx+x, " ")
 					else:
@@ -244,33 +305,47 @@ class World:
 						else:
 							self.winworld.addstr(ty, tx+x, o.pic[y][x])
 					if ty == co[0] and tx == co[1]:
-						self.winworld.addstr(ty, tx, '@')
+						self.winworld.addstr(ty, tx, '@', self.c_cya)
 			#gyx(co[0]-1, co[1])
 			#pfpl(yel, o.windex, rst)
 
 			#gyx(co[0]-2, co[1])
 			#pfpl(yel, "@", rst)
-			if o.hitside: # If there was a collision
-				pass
-				#self.draw_collision(o, o.hitside, erase=erase)
+		if o.typ == self.t_human:
+			self.winworld.refresh()
 	def draw_collision(self, o, hitside, erase=None):
 		co = self.world_co_to_screen(o.pos)
-		ty = int(co[0] + hitside[0]*o.size[0]/2)
-		tx = int(co[1] + hitside[2]*o.size[2]/2)
-		ty = int(co[0])
-		tx = int(co[1])
+		xsign = sign0(hitside[2])
+		ysign = sign0(hitside[1])
+		if hitside[1] and hitside[2]:   # Hit on z side (y on screen)
+			ty = int(co[0] + ysign*o.size[1])
+			tx = int(co[1] + xsign*o.size[2])
+		elif hitside[1]:  # Just on y
+			ty = int(co[0] + ysign*o.size[1])
+			tx = co[1]
+		elif hitside[2]:  # Just on x
+			ty = int(co[0] + ysign*(o.size[1]/2 + .5))
+			tx = int(co[1] + xsign*(o.size[2]/2 + .5))
+
+		#ty = int(co[0] + hitside[0]*o.size[0]/2)
+		#tx = int(co[1] + hitside[2]*o.size[2]/2)
+		#ty = int(co[0]-1)
+		#tx = int(co[1])
 		#self.log("Hit: {} coy.x: {} {}".format(hitside, co[0], co[1]))
-		self.log("Hit: {} coy.x: {} {}".format(hitside, ty, ty))
+		#self.log("Hit: {} coy.x: {} {}".format(hitside, ty, ty))
 		#pf("Hit:", hitside, "ty,x:", ty, tx)
 		#pf("")
-		#gyx(ty, tx)
-		if ty >= 0 and tx >= 0 and tx < self.tsize[1]:
-			char = "*" if not erase else " "
-			self.winworld.addstr(ty, tx, char)
+		#eprint("tyx:{},{} tsize:{} h:{}".format(ty,tx, self.tsize, self.wworldheight))
+		if ty >= 0 and tx >= 0 and ty < self.wworldheight-1 and tx < self.wworldwidth:
+			char = "*"
+			self.winworld.addstr(ty, tx, char, self.c_red)
 			self.add_timed_erase((ty,tx), 1)
-			self.winworld.refresh()
+	def pyxr(y, x, s):
+		self.winworld.addstr(y, x, s)
 	def add_timed_erase(self, co, ticks):
 		self.erasures.append(Erasure(co, self.timestep + ticks))
+	def wref(self):
+		self.winworld.refresh()
 	def overlap_obj(self, o, o2):
 		# Returns None if false, else hitside = [z,y,x] <= {-1,0,1}+
 		# Where -1 means the negative side, while 0 means we're in an overlap
@@ -304,16 +379,23 @@ class World:
 		# entered that side.  Ideally we should examine the velocity vector
 		# directions, and find the distance traveled into the object that way
 		if ocount != 3: return None # Must overlap on all axii, or we aren't overlapped
-		else:
-			if not all(hitside): # Fully enclosed
+		else:                       # Here we're overlapped
+			if not all(hitside):      #   Fully enclosed
 					for i in range(3):
 							hitside[i] = min(abs(o.pos[i]-o2.pos[i]), abs(o2.pos[i]-o.pos[i]))
-
+					return hitside
+			                          #   Here just a normal overlap
 			#self.log("hitside:: {}".format(hitside))
 			minoverlap = min([abs(x) for x in hitside if x != 0])
 			#self.log("hitside1 {}".format(hitside))
 			hitside = [0 if abs(x)>minoverlap else x for x in hitside]
 			#self.log("hitside2 {}".format(hitside))
+
+			self.draw_object(o, color=self.c_red)
+			self.draw_object(o2, color=self.c_mag)
+			self.wref()
+			sleep(.5)
+
 			return hitside
 
 class Size: # Unused
@@ -331,7 +413,7 @@ class Size: # Unused
 
 class Object:
 	#def __init__(self, **kwargs):
-	def __init__(self, typ=None, fixed=False, size=(1,1,1), pic="*",
+	def __init__(self, typ=None, fixed=False, size=(1,1,1), pic="x",
 			weight=1, animated=False, hitside=None):
 		self.pos = None    # np array
 		self.__vel = np.array([0,0,0], dtype=np.float64)
@@ -402,18 +484,20 @@ class FixedBlock(Object):
 
 class Horizon(Object):
 	def __init__(self):
+		pic = "------"
 		sc_pic = [
-			"-",
+			pic,
 		]
-		super().__init__(typ=World.t_horizon, size=(1,1,1), pic=sc_pic, fixed=True)
+		super().__init__(typ=World.t_horizon, size=(1,1,len(pic)), pic=sc_pic, fixed=True)
 	def step(self): return
 
 class NearGround(Object):
 	def __init__(self):
+		pic = "======"
 		sc_pic = [
-			"=",
+			pic,
 		]
-		super().__init__(typ=World.t_nearground, size=(1,3,1), pic=sc_pic, fixed=True)
+		super().__init__(typ=World.t_nearground, size=(1,1,len(pic)), pic=sc_pic, fixed=True)
 	def step(self): return
 
 
@@ -455,4 +539,4 @@ class Goal(Object):
 		]
 		super().__init__(typ=World.t_bot, size=(3,3,3), pic=sc_pic, weight=1)
 
-# vim:ts=2 ai
+# vim:ts=2 ai sw=2

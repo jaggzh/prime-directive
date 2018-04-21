@@ -37,11 +37,11 @@ from keras.callbacks import EarlyStopping
 import shutil
 from keras import backend as K
 from ansi import *
-from bh.util import *
 #import cPickle as pickle
 import os
 from world import World, Human, NearGround, Horizon, Block, FixedBlock, Bot, Goal
-import bh.kbnb as kbnb
+import kbnb
+from util import *
 import atexit
 import signal
 
@@ -266,7 +266,9 @@ signal.signal(signal.SIGWINCH, siggy)
 fblock = FixedBlock()
 world.add_object(fblock, pos=(0, world_size[1]/2, int(world_size[2]*.6)))
 # Add other objects
-for i in range(int(world_size[2])):
+horizon = Horizon()
+ground = NearGround()
+for i in range(0, int(world_size[2]), horizon.size[2]): # Skip size[2] (x width)
 	horizon = Horizon()
 	ground = NearGround()
 	world.add_object(horizon, pos=(0, world_size[1]-1, i))
@@ -283,11 +285,13 @@ bot = Bot()
 world.add_object(bot)
 for t in range(0,10000):
 	if not args.nodraw: world.draw()
-	time.sleep(2)  # Delay before step cuz step erases
+	time.sleep(.01)  # Delay before step cuz step erases
 
 	#else: break
 
 	world.step()
+	if world.winworld.getch() != -1:
+			break
 
 cleanup()
 pf("Finished")

@@ -2,7 +2,7 @@ from __future__ import print_function # For * **
 import sys
 import os
 
-def runsep(method, args):
+def runsep(method, args): # Run and retrieve process's stdout
 	def queue_wrapper(q, params):
 		r = method(*params)
 		q.put(r)
@@ -16,27 +16,30 @@ def runsep(method, args):
 ## Functions
 def exit(ec=0):
 	sys.exit(ec)
-def pf(*x, **y):
+def pf(*x, **y):    # Print-flush
 	print(*x, **y)
 	sys.stdout.flush()
-def pfp(*x, **y):
+def pfp(*x, **y):   # Print-flush, plain (no separator)
 	y.setdefault('sep', '')
 	print(*x, **y)
 	sys.stdout.flush()
-def pfl(*x, **y):
+def pfl(*x, **y):   # Print-flush, line (ie. no newline)
 	y.setdefault('end', '')
 	print(*x, **y)
 	sys.stdout.flush()
-def pfpl(*x, **y):
+def pfpl(*x, **y):  # Print-flush, plain, line (no sep, no NL)
 	y.setdefault('sep', '')
 	y.setdefault('end', '')
 	print(*x, **y)
 	sys.stdout.flush()
-def eprint(*args, **kwargs):
+def eprint(*args, **kwargs):  # Print to stderr
 	print(*args, file=sys.stderr, **kwargs)
 def vprint(verbosity, *args, **kwargs):
 	if (verbose >= verbosity):
 		pf(*args, **kwargs)
+def setverbosity(v=0):
+	global verbose
+	verbose=v
 
 def get_linux_terminal():
 	env = os.environ
@@ -64,5 +67,11 @@ def get_linux_terminal():
 		#except:
 		#	cr = (25, 80)
 	return int(cr[1]), int(cr[0])
+
+def get_filelen(fn):
+	fstat = os.stat(fn)
+	flen = fstat.st_size
+	return flen
+
 
 # vim:ts=4 ai
